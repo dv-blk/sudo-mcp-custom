@@ -1,0 +1,19 @@
+{
+  "exactMatches": [
+    "rm -rf /",
+    "rm -rf /*",
+    "rm -rf / --no-preserve-root",
+    ":(){ :|:& };:"
+  ],
+  "regexPatterns": [
+    "^rm\\s+.*\\s+/$",
+    "^mkfs\\..*\\s+/dev/[sh]d[a-z]$",
+    "^dd\\s+.*of=/dev/[sh]d[a-z]\\s*$",
+    "^dd\\s+.*of=/dev/nvme"
+  ],
+  "blockedBinaries": [
+    "mkfs.ext4",
+    "mkfs.xfs",
+    "mkfs.btrfs"
+  ]
+}
