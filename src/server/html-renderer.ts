@@ -72,6 +72,24 @@ export function renderCommandCard(cmd: QueuedCommand): string {
       const statusClass = isSuccess ? 'success' : 'error';
       const statusText = isSuccess ? 'Completed' : 'Failed';
       
+      let outputHtml = '';
+      if (result?.stdout) {
+        outputHtml += `
+          <div class="output-section">
+            <div class="output-label">STDOUT:</div>
+            <pre class="output-text stdout">${escapeHtml(result.stdout)}</pre>
+          </div>
+        `;
+      }
+      if (result?.stderr) {
+        outputHtml += `
+          <div class="output-section">
+            <div class="output-label">STDERR:</div>
+            <pre class="output-text stderr">${escapeHtml(result.stderr)}</pre>
+          </div>
+        `;
+      }
+      
       return `
         <div class="command-card completed ${statusClass}" id="cmd-${cmd.id}">
           <div class="command-row">
@@ -86,6 +104,7 @@ export function renderCommandCard(cmd: QueuedCommand): string {
                 ${result?.duration ? ` | Duration: ${formatDuration(result.duration)}` : ''}
                 ${result?.timedOut ? ' | <strong>TIMED OUT</strong>' : ''}
               </div>
+              ${outputHtml}
             </div>
           </div>
         </div>
@@ -117,6 +136,9 @@ export function renderCommandCard(cmd: QueuedCommand): string {
  */
 export function renderQueue(commands: QueuedCommand[]): string {
   const pending = commands.filter(c => c.status === 'pending');
+  const completed = commands.filter(c => 
+    c.status === 'completed' || c.status === 'failed' || c.status === 'declined'
+  );
 
   let html = '';
 
@@ -140,6 +162,15 @@ export function renderQueue(commands: QueuedCommand[]): string {
   // Show empty state if no commands
   if (commands.length === 0) {
     html = '<div class="empty-state">No pending commands. Waiting for requests...</div>';
+  } else if (completed.length > 0) {
+    // Show clear button at bottom if there are completed commands
+    html += `
+      <div class="bottom-actions">
+        <button class="btn btn-secondary btn-large" hx-post="/clear-completed" hx-swap="none">
+          Clear Completed (${completed.length})
+        </button>
+      </div>
+    `;
   }
 
   return html;
@@ -284,6 +315,15 @@ export function renderFullPage(commands: QueuedCommand[]): string {
       margin-bottom: 16px;
     }
 
+    .bottom-actions {
+      display: flex;
+      gap: 12px;
+      margin-top: 16px;
+      padding-top: 16px;
+      border-top: 2px solid #e5e7eb;
+      justify-content: center;
+    }
+
     .spinner {
       color: #f59e0b;
       font-size: 12px;
@@ -302,6 +342,39 @@ export function renderFullPage(commands: QueuedCommand[]): string {
       margin-top: 4px;
     }
 
+    .output-section {
+      margin-top: 12px;
+    }
+
+    .output-label {
+      font-size: 10px;
+      font-weight: 600;
+      color: #6b7280;
+      text-transform: uppercase;
+      margin-bottom: 4px;
+      letter-spacing: 0.5px;
+    }
+
+    .output-text {
+      background: #1e293b;
+      color: #e2e8f0;
+      padding: 10px 12px;
+      border-radius: 4px;
+      font-family: 'Courier New', monospace;
+      font-size: 12px;
+      overflow-x: auto;
+      margin: 0;
+      white-space: pre-wrap;
+      word-break: break-all;
+      max-height: 400px;
+      overflow-y: auto;
+    }
+
+    .output-text.stderr {
+      background: #3f1d1d;
+      color: #fecaca;
+    }
+
     .empty-state {
       text-align: center;
       padding: 60px 20px;
@@ -314,6 +387,52 @@ export function renderFullPage(commands: QueuedCommand[]): string {
       cursor: wait;
     }
   </style>
+  <script>
+    // Function to scroll to bottom
+    function scrollToBottom() {
+      // Try multiple scroll targets to handle different scenarios
+      const scrollHeight = Math.max(
+        document.body.scrollHeight,
+        document.documentElement.scrollHeight,
+        document.body.offsetHeight,
+        document.documentElement.offsetHeight,
+        document.body.clientHeight,
+        document.documentElement.clientHeight
+      );
+      
+      window.scrollTo({
+        top: scrollHeight,
+        behavior: 'smooth'
+      });
+    }
+
+    // Auto-scroll to bottom when queue updates via SSE
+    document.addEventListener('htmx:afterSwap', function(event) {
+      if (event.detail.target.id === 'queue') {
+        // Wait for images/content to load, then scroll
+        requestAnimationFrame(function() {
+          requestAnimationFrame(function() {
+            scrollToBottom();
+          });
+        });
+      }
+    });
+
+    // Also listen for SSE swap specifically
+    document.addEventListener('htmx:sseMessage', function(event) {
+      setTimeout(scrollToBottom, 50);
+    });
+
+    // Scroll on initial load
+    window.addEventListener('load', function() {
+      setTimeout(scrollToBottom, 200);
+    });
+
+    // Debug: Log SSE events
+    document.addEventListener('htmx:sseError', function(event) {
+      console.error('SSE Error:', event.detail);
+    });
+  </script>
 </head>
 <body>
   <h1>🔐 Sudo Command Approval</h1>

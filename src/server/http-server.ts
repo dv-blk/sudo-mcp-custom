@@ -48,12 +48,34 @@ export class HttpServer {
       res.setHeader('Connection', 'keep-alive');
       res.setHeader('X-Accel-Buffering', 'no');
 
+      // Send initial connection message
+      res.write('event: connected\ndata: connected\n\n');
+
       // Add client to set
       this.sseClients.add(res);
+      log(`SSE client connected. Total clients: ${this.sseClients.size}`);
+
+      // Send current queue state immediately
+      const commands = this.queue.getAll();
+      const html = renderQueue(commands);
+      const lines = html.split('\n');
+      const dataLines = lines.map(line => `data: ${line}`).join('\n');
+      res.write(`event: queue\n${dataLines}\n\n`);
+
+      // Keep-alive heartbeat every 15 seconds
+      const heartbeat = setInterval(() => {
+        try {
+          res.write(': heartbeat\n\n');
+        } catch (err) {
+          clearInterval(heartbeat);
+        }
+      }, 15000);
 
       // Remove client on disconnect
       req.on('close', () => {
+        clearInterval(heartbeat);
         this.sseClients.delete(res);
+        log(`SSE client disconnected. Total clients: ${this.sseClients.size}`);
       });
     });
 
@@ -71,19 +93,15 @@ export class HttpServer {
     // Execute all pending commands  
     this.app.post('/execute-all', async (req, res) => {
       const pending = this.queue.getPending();
-      log(`/execute-all triggered for ${pending.length} commands`);
       res.send(''); // Respond immediately
 
       // Execute all sequentially in background (for sudo safety)
       // Each command's MCP tool call will return independently when that command finishes
       for (const cmd of pending) {
-        log(`Starting execution of command: ${cmd.id}`);
         await this.executeCommand(cmd.id).catch(err => {
           logError(`Failed to execute command ${cmd.id}`, err);
         });
-        log(`Finished execution of command: ${cmd.id}`);
       }
-      log(`/execute-all completed all ${pending.length} commands`);
     });
 
     // Decline single command
@@ -98,6 +116,12 @@ export class HttpServer {
       this.queue.declineAll();
       res.send('');
     });
+
+    // Clear completed/declined/failed commands
+    this.app.post('/clear-completed', (req, res) => {
+      this.queue.clearCompleted();
+      res.send('');
+    });
   }
 
   /**
@@ -109,26 +133,19 @@ export class HttpServer {
       return;
     }
 
-    const startTime = Date.now();
-    log(`[${id}] EXECUTION STARTED for: ${command.command}`);
-
     try {
       // Update status to executing
       this.queue.updateStatus(id, 'executing');
-      log(`[${id}] Status changed to EXECUTING at ${Date.now() - startTime}ms`);
 
       // Ensure sudo authentication
       await this.sessionManager.ensureAuthenticated();
-      log(`[${id}] Authentication completed at ${Date.now() - startTime}ms`);
 
       // Execute command
       const result = await executeSudoCommand(command.command);
-      log(`[${id}] Command completed at ${Date.now() - startTime}ms - Exit code: ${result.exitCode}`);
 
       // Update with result
       const finalStatus = result.success ? 'completed' : 'failed';
       this.queue.updateStatus(id, finalStatus, result);
-      log(`[${id}] Status changed to ${finalStatus.toUpperCase()} at ${Date.now() - startTime}ms`);
 
     } catch (error) {
       logError(`Command execution failed for ${id}`, error as Error);
@@ -157,21 +174,34 @@ export class HttpServer {
    * Broadcast message to all SSE clients
    */
   private broadcastSSE(event: string, data: string): void {
+    if (this.sseClients.size === 0) {
+      logDebug('No SSE clients connected, skipping broadcast');
+      return;
+    }
+
     // SSE format requires each line to be prefixed with "data: "
     // Split multi-line data and prefix each line
     const lines = data.split('\n');
     const dataLines = lines.map(line => `data: ${line}`).join('\n');
     const message = `event: ${event}\n${dataLines}\n\n`;
     
-    logDebug(`Broadcasting SSE to ${this.sseClients.size} clients`);
+    log(`Broadcasting SSE to ${this.sseClients.size} client(s)`);
+    
+    const deadClients = new Set<express.Response>();
     
     for (const client of this.sseClients) {
       try {
         client.write(message);
       } catch (error) {
-        // Client disconnected, will be cleaned up by close event
-        this.sseClients.delete(client);
+        // Client disconnected, mark for removal
+        logDebug('Failed to write to SSE client, marking for removal');
+        deadClients.add(client);
       }
+    }
+    
+    // Remove dead clients
+    for (const client of deadClients) {
+      this.sseClients.delete(client);
     }
   }
 

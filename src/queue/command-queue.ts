@@ -18,7 +18,6 @@ type ChangeListener = (commands: QueuedCommand[]) => void;
 export class CommandQueue {
   private commands: Map<string, QueuedCommand> = new Map();
   private changeListeners: ChangeListener[] = [];
-  private clearTimer: NodeJS.Timeout | null = null;
 
   /**
    * Add a command to the queue
@@ -34,7 +33,6 @@ export class CommandQueue {
     this.commands.set(queuedCommand.id, queuedCommand);
     logDebug(`Added command to queue: ${queuedCommand.id}`);
     
-    this.checkAndScheduleClear();
     this.notifyListeners();
     
     return queuedCommand;
@@ -57,7 +55,6 @@ export class CommandQueue {
 
     logDebug(`Updated command ${id}: status=${status}`);
     
-    this.checkAndScheduleClear();
     this.notifyListeners();
   }
 
@@ -107,9 +104,9 @@ export class CommandQueue {
   }
 
   /**
-   * Clear all completed/declined/failed commands
+   * Clear all completed/declined/failed commands (manual)
    */
-  private clearCompleted(): void {
+  clearCompleted(): void {
     const before = this.commands.size;
     
     for (const [id, cmd] of this.commands.entries()) {
@@ -123,31 +120,6 @@ export class CommandQueue {
       logDebug(`Cleared ${before - after} completed commands from queue`);
       this.notifyListeners();
     }
-  }
-
-  /**
-   * Check queue state and schedule auto-clear if needed
-   */
-  private checkAndScheduleClear(): void {
-    // Cancel existing timer
-    if (this.clearTimer) {
-      clearTimeout(this.clearTimer);
-      this.clearTimer = null;
-    }
-
-    // Don't schedule clear if there are active commands
-    if (this.hasActiveCommands()) {
-      logDebug('Active commands present, not scheduling clear');
-      return;
-    }
-
-    // Schedule clear in 30 seconds
-    logDebug('Queue idle, scheduling auto-clear in 30 seconds');
-    this.clearTimer = setTimeout(() => {
-      logDebug('Auto-clear timer triggered');
-      this.clearCompleted();
-      this.clearTimer = null;
-    }, 30000);
   }
 
   /**
@@ -183,10 +155,6 @@ export class CommandQueue {
    * Cleanup resources
    */
   destroy(): void {
-    if (this.clearTimer) {
-      clearTimeout(this.clearTimer);
-      this.clearTimer = null;
-    }
     this.changeListeners = [];
   }
 }

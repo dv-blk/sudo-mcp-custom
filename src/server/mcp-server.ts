@@ -6,29 +6,23 @@ import {
 } from '@modelcontextprotocol/sdk/types.js';
 import { CommandQueue } from '../queue/command-queue';
 import { Blocklist } from '../security/blocklist';
-import { SessionManager } from '../auth/session-manager';
-import { 
-  handleSudoExec, 
-  handleSudoApprove, 
-  handleSudoDecline, 
-  getInteractiveToolDefinitions 
-} from '../tools/sudo-interactive';
+import { handleSudoExec, getSudoExecToolDefinition } from '../tools/sudo-exec';
 import { log, logError } from '../utils/logger';
 
 export class McpSudoServer {
   private server: Server;
   private queue: CommandQueue;
   private blocklist: Blocklist;
-  private sessionManager: SessionManager;
+  private serverUrl: string;
 
   constructor(
     queue: CommandQueue,
     blocklist: Blocklist,
-    sessionManager: SessionManager
+    serverUrl: string
   ) {
     this.queue = queue;
     this.blocklist = blocklist;
-    this.sessionManager = sessionManager;
+    this.serverUrl = serverUrl;
 
     this.server = new Server(
       {
@@ -49,7 +43,7 @@ export class McpSudoServer {
     // List available tools
     this.server.setRequestHandler(ListToolsRequestSchema, async () => {
       return {
-        tools: getInteractiveToolDefinitions(),
+        tools: [getSudoExecToolDefinition()],
       };
     });
 
@@ -74,43 +68,11 @@ export class McpSudoServer {
           return await handleSudoExec(
             command,
             this.queue,
-            this.blocklist
+            this.blocklist,
+            this.serverUrl
           );
         } catch (error) {
           logError('Error handling sudo_exec', error as Error);
-          return {
-            content: [{
-              type: 'text',
-              text: `Error: ${(error as Error).message}`
-            }],
-            isError: true
-          };
-        }
-      }
-
-      if (name === 'sudo_approve') {
-        try {
-          return await handleSudoApprove(
-            this.queue,
-            this.sessionManager
-          );
-        } catch (error) {
-          logError('Error handling sudo_approve', error as Error);
-          return {
-            content: [{
-              type: 'text',
-              text: `Error: ${(error as Error).message}`
-            }],
-            isError: true
-          };
-        }
-      }
-
-      if (name === 'sudo_decline') {
-        try {
-          return await handleSudoDecline(this.queue);
-        } catch (error) {
-          logError('Error handling sudo_decline', error as Error);
           return {
             content: [{
               type: 'text',

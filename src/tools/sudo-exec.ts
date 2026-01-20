@@ -63,8 +63,7 @@ export async function handleSudoExec(
 
   // Add to queue
   const queuedCmd = queue.add(command);
-  const startTime = Date.now();
-  logDebug(`[${queuedCmd.id}] Tool call STARTED at ${startTime} - Command queued: ${command}`);
+  logDebug(`Command queued: ${queuedCmd.id}`);
 
   // Open browser on first command (lazy opening)
   const allCommands = queue.getAll();
@@ -73,11 +72,8 @@ export async function handleSudoExec(
   }
 
   // Poll for completion
-  let pollCount = 0;
   while (true) {
-    pollCount++;
     const cmd = queue.getById(queuedCmd.id);
-    logDebug(`[${queuedCmd.id}] Poll #${pollCount} at ${Date.now() - startTime}ms - Status: ${cmd?.status}`);
     
     // Command was removed from queue (shouldn't happen, but handle it)
     if (!cmd) {
@@ -93,8 +89,6 @@ export async function handleSudoExec(
     // Command completed successfully or failed
     if (cmd.status === 'completed' || cmd.status === 'failed') {
       const isError = cmd.status === 'failed' || !cmd.result?.success;
-      const elapsed = Date.now() - startTime;
-      logDebug(`[${queuedCmd.id}] Tool call RETURNING at ${elapsed}ms - Status: ${cmd.status}`);
       return {
         content: [{
           type: 'text',
@@ -106,8 +100,6 @@ export async function handleSudoExec(
 
     // Command was declined
     if (cmd.status === 'declined') {
-      const elapsed = Date.now() - startTime;
-      logDebug(`[${queuedCmd.id}] Tool call RETURNING at ${elapsed}ms - Status: declined`);
       return {
         content: [{
           type: 'text',

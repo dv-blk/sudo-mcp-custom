@@ -35,12 +35,11 @@ async function main() {
     httpServer = new HttpServer(queue, sessionManager);
     const serverUrl = await httpServer.start(3000);
 
-    // Start MCP server (stdio) - interactive mode
-    mcpServer = new McpSudoServer(queue, blocklist, sessionManager);
+    // Start MCP server (stdio)
+    mcpServer = new McpSudoServer(queue, blocklist, serverUrl);
     await mcpServer.start();
 
-    log('Sudo MCP Server is ready (interactive mode)');
-    log(`HTTP server available at: ${serverUrl} (for monitoring only)`);
+    log('Sudo MCP Server is ready');
 
   } catch (error) {
     logError('Failed to start server', error as Error);
