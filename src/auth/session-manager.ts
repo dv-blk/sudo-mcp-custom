@@ -59,21 +59,10 @@ export class SessionManager {
         ];
         log('Using kdialog for SSH X11 forwarding');
       } else {
-        // Fallback: use SSH_ASKPASS if available
-        const hasSshAskpass = await this.commandExists('ssh-askpass') || 
-                             await this.commandExists('ksshaskpass') ||
-                             await this.commandExists('gnome-ssh-askpass');
-        
-        if (hasSshAskpass) {
-          dialogTool = process.env.SSH_ASKPASS || 'ssh-askpass';
-          dialogArgs = ['Sudo password required for MCP server'];
-          log(`Using ${dialogTool} for SSH session`);
-        } else {
-          throw new Error(
-            'No X11-compatible password dialog found. Please install zenity, kdialog, or ssh-askpass on the remote server.\n' +
-            'Alternatively, use passwordless sudo or pre-authenticate with: sudo -v'
-          );
-        }
+        throw new Error(
+          'No X11-compatible password dialog found. Please install zenity or kdialog on the remote server.\n' +
+          'Alternatively, use passwordless sudo or pre-authenticate with: sudo -v'
+        );
       }
     } else if (desktop.includes('KDE')) {
       // KDE - use kdialog

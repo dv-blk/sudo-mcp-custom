@@ -20,6 +20,8 @@ Just close the tab - you were warned. Good luck!
 
 Approve sudo commands from AI assistants (OpenCode/Claude) through a single Chrome extension tab - even over SSH!
 
+> **Platform:** Requires X11 and GUI password dialogs (zenity or kdialog). May work on macOS or WSL2 with proper X server setup, but untested. Windows support unknown.
+
 ## Overview
 
 When your AI assistant needs to run `sudo` commands, they appear in a Chrome extension for your approval. Works seamlessly across multiple MCP instances and remote SSH servers.
