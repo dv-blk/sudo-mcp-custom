@@ -46,7 +46,8 @@ export async function handleSudoExec(
   command: string,
   queue: CommandQueue,
   blocklist: Blocklist,
-  serverUrl: string
+  serverUrl: string,
+  useBridge: boolean = false
 ): Promise<{ content: Array<{ type: string; text: string }>; isError?: boolean }> {
   
   // Validate against blocklist
@@ -65,10 +66,12 @@ export async function handleSudoExec(
   const queuedCmd = queue.add(command);
   logDebug(`Command queued: ${queuedCmd.id}`);
 
-  // Open browser on first command (lazy opening)
-  const allCommands = queue.getAll();
-  if (allCommands.length === 1) {
-    await openBrowserOnce(serverUrl);
+  // Open browser on first command (lazy opening) - only if NOT using bridge
+  if (!useBridge) {
+    const allCommands = queue.getAll();
+    if (allCommands.length === 1) {
+      await openBrowserOnce(serverUrl);
+    }
   }
 
   // Poll for completion

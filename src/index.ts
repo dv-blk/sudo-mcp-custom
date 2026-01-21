@@ -1,75 +1,26 @@
 #!/usr/bin/env node
 
-import * as path from 'path';
-import { CommandQueue } from './queue/command-queue';
-import { SessionManager } from './auth/session-manager';
-import { Blocklist } from './security/blocklist';
-import { HttpServer } from './server/http-server';
-import { McpSudoServer } from './server/mcp-server';
-import { cleanupBrowserState } from './utils/browser-opener';
-import { log, logError } from './utils/logger';
+import { logError } from './utils/logger';
 
 async function main() {
-  // Check for GUI environment
-  if (!process.env.DISPLAY) {
-    console.error('[sudo-mcp ERROR] No DISPLAY environment variable detected.');
-    console.error('[sudo-mcp ERROR] This MCP server requires a GUI environment.');
-    console.error('[sudo-mcp ERROR] Please ensure X11 is running and DISPLAY is set.');
-    process.exit(1);
-  }
+  const args = process.argv.slice(2);
 
-  log('Starting Sudo MCP Server...');
-
-  // Initialize components
-  const queue = new CommandQueue();
-  const sessionManager = new SessionManager();
-  
-  const blocklistPath = path.join(__dirname, '../config/blocklist.json');
-  const blocklist = new Blocklist(blocklistPath);
-
-  let httpServer: HttpServer | null = null;
-  let mcpServer: McpSudoServer | null = null;
-
-  try {
-    // Start HTTP server
-    httpServer = new HttpServer(queue, sessionManager);
-    const serverUrl = await httpServer.start(3000);
-
-    // Start MCP server (stdio)
-    mcpServer = new McpSudoServer(queue, blocklist, serverUrl);
-    await mcpServer.start();
-
-    log('Sudo MCP Server is ready');
-
-  } catch (error) {
-    logError('Failed to start server', error as Error);
-    process.exit(1);
-  }
-
-  // Graceful shutdown
-  const cleanup = async () => {
-    log('Shutting down...');
-
-    if (mcpServer) {
-      await mcpServer.stop();
-    }
-
-    if (httpServer) {
-      await httpServer.stop();
-    }
-
-    queue.destroy();
-    cleanupBrowserState();
-
-    log('Shutdown complete');
+  if (args.includes('--bridge')) {
+    // Run in bridge mode
+    const { start } = await import('./modes/bridge-mode');
+    await start();
+  } else if (args.includes('--bridge-status')) {
+    // Show bridge status (TODO: implement)
+    console.log('Bridge status check not yet implemented');
     process.exit(0);
-  };
-
-  process.on('SIGINT', cleanup);
-  process.on('SIGTERM', cleanup);
+  } else {
+    // Run in MCP server mode (default)
+    const { start } = await import('./modes/mcp-mode');
+    await start();
+  }
 }
 
-// Start the server
+// Start the application
 main().catch((error) => {
   logError('Unhandled error in main', error);
   process.exit(1);

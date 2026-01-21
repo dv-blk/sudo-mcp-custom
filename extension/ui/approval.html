@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Sudo MCP - Command Approval</title>
+  <link rel="stylesheet" href="approval.css">
+</head>
+<body>
+  <div class="header">
+    <h1>🔐 Sudo Command Approval</h1>
+    <div class="connection-status">
+      <span id="connectionIndicator" class="status-dot"></span>
+      <span id="connectionText">Connecting...</span>
+    </div>
+  </div>
+  
+  <div id="batchActions" class="batch-actions" style="display: none;">
+    <button class="btn btn-success btn-large" id="executeAll">Execute All</button>
+    <button class="btn btn-danger btn-large" id="declineAll">Decline All</button>
+  </div>
+  
+  <div id="queue" class="queue">
+    <div class="empty-state">Waiting for commands...</div>
+  </div>
+  
+  <div id="bottomActions" class="bottom-actions" style="display: none;">
+    <button class="btn btn-secondary btn-large" id="clearCompleted">Clear Completed</button>
+  </div>
+  
+  <script src="approval.js"></script>
+</body>
+</html>

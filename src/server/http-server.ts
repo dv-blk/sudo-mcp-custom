@@ -3,7 +3,7 @@ import * as path from 'path';
 import * as http from 'http';
 import { CommandQueue } from '../queue/command-queue';
 import { SessionManager } from '../auth/session-manager';
-import { executeSudoCommand } from '../executor/sudo-executor';
+import { executeQueuedCommand } from '../executor/command-executor';
 import { renderFullPage, renderQueue } from './html-renderer';
 import { log, logError, logDebug } from '../utils/logger';
 
@@ -128,36 +128,7 @@ export class HttpServer {
    * Execute a command from the queue
    */
   private async executeCommand(id: string): Promise<void> {
-    const command = this.queue.getById(id);
-    if (!command || command.status !== 'pending') {
-      return;
-    }
-
-    try {
-      // Update status to executing
-      this.queue.updateStatus(id, 'executing');
-
-      // Ensure sudo authentication
-      await this.sessionManager.ensureAuthenticated();
-
-      // Execute command
-      const result = await executeSudoCommand(command.command);
-
-      // Update with result
-      const finalStatus = result.success ? 'completed' : 'failed';
-      this.queue.updateStatus(id, finalStatus, result);
-
-    } catch (error) {
-      logError(`Command execution failed for ${id}`, error as Error);
-      this.queue.updateStatus(id, 'failed', {
-        success: false,
-        exitCode: -1,
-        stdout: '',
-        stderr: (error as Error).message,
-        timedOut: false,
-        duration: 0
-      });
-    }
+    await executeQueuedCommand(id, this.queue, this.sessionManager);
   }
 
   /**

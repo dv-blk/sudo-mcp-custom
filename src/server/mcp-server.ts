@@ -14,15 +14,18 @@ export class McpSudoServer {
   private queue: CommandQueue;
   private blocklist: Blocklist;
   private serverUrl: string;
+  private useBridge: boolean;
 
   constructor(
     queue: CommandQueue,
     blocklist: Blocklist,
-    serverUrl: string
+    serverUrl: string,
+    useBridge: boolean = false
   ) {
     this.queue = queue;
     this.blocklist = blocklist;
     this.serverUrl = serverUrl;
+    this.useBridge = useBridge;
 
     this.server = new Server(
       {
@@ -69,7 +72,8 @@ export class McpSudoServer {
             command,
             this.queue,
             this.blocklist,
-            this.serverUrl
+            this.serverUrl,
+            this.useBridge
           );
         } catch (error) {
           logError('Error handling sudo_exec', error as Error);

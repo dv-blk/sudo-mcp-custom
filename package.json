@@ -7,6 +7,8 @@
     "build": "tsc",
     "dev": "tsc --watch",
     "start": "node build/index.js",
+    "bridge": "node build/index.js --bridge",
+    "bridge:status": "node build/index.js --bridge-status",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "keywords": [],
@@ -17,12 +19,14 @@
     "@modelcontextprotocol/sdk": "^1.25.2",
     "express": "^5.2.1",
     "uuid": "^13.0.0",
+    "ws": "^8.18.0",
     "zod": "^4.3.5"
   },
   "devDependencies": {
     "@types/express": "^5.0.6",
     "@types/node": "^25.0.9",
     "@types/uuid": "^10.0.0",
+    "@types/ws": "^8.5.13",
     "typescript": "^5.9.3"
   }
 }

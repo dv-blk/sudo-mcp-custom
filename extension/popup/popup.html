@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Sudo MCP</title>
+  <link rel="stylesheet" href="popup.css">
+</head>
+<body>
+  <div class="popup">
+    <h1>🔐 Sudo MCP</h1>
+    
+    <div class="status" id="status">
+      <div class="status-item">
+        <span class="label">Bridge:</span>
+        <span class="value" id="bridgeStatus">Connecting...</span>
+      </div>
+      <div class="status-item">
+        <span class="label">Pending:</span>
+        <span class="value" id="pendingCount">0</span>
+      </div>
+    </div>
+    
+    <button id="openApproval" class="btn btn-primary">
+      Open Approval Tab
+    </button>
+    
+    <div class="footer">
+      <a href="#" id="resetToken">Reset Token</a>
+    </div>
+  </div>
+  
+  <script src="popup.js"></script>
+</body>
+</html>

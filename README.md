@@ -1,271 +1,436 @@
-# Sudo MCP Server
-
-A Model Context Protocol (MCP) server that allows AI assistants to execute commands with sudo privileges through a browser-based approval interface.
-
-## Features
-
-- **Browser-based approval UI**: Clean, real-time web interface for approving sudo commands
-- **Lazy authentication**: Password prompt only appears when first command is executed
-- **Pipeline queue**: Execute commands individually or all at once
-- **Auto-clear**: Completed commands automatically removed after 30 seconds of inactivity
-- **Minimal blocklist**: Only blocks catastrophic system-destroying commands
-- **Offline capable**: All dependencies bundled locally (HTMX included)
-- **Real-time updates**: Server-Sent Events (SSE) for instant UI synchronization
-
-## Architecture
-
-### Pipeline Flow
+# Sudo MCP Bridge
 
 ```
-OpenCode AI → MCP Server (validates) → Command Queue → Browser UI
-                                                         ↓
-User approves → Session Manager (auth) → Sudo Executor → Result
-                                                         ↓
-                                        Result returned to OpenCode
+⚠️  WARNING: AI-GENERATED CODE AHEAD ⚠️
 ```
 
-### Key Components
+**This entire library was conjured by AI.** Every line: TypeScript, bridge daemon, Chrome extension, SSH tunneling, even this README. I just sat there muttering "sure" and "pls no more enter password."
 
-- **Command Queue**: Manages pending, executing, and completed commands
-- **Session Manager**: Handles sudo authentication via `systemd-ask-password` GUI dialog
-- **Blocklist Validator**: Prevents execution of catastrophic commands
-- **HTTP + SSE Server**: Serves browser UI with real-time updates
-- **MCP Server**: Exposes `sudo_exec` tool via stdio transport
+**Safe?** I don't know.
 
-## Installation
+**Production?** Criminal negligence.
 
-### Prerequisites
+**Works?** Works for me™.
 
-- Node.js 18+ and npm
-- Linux system with GUI (X11)
-- `systemd-ask-password` (for GUI password dialog)
-- `xdg-open` (for browser launching)
+**Will it betray you?** You're about to give an AI's code sudo access to your machine. If Zalgo comes out of the void whispering your crypto seed phrases, you may just have to give him what he wants, but it's not my fault.
 
-### Setup
+Just close the tab - you were warned. Good luck!
 
-1. **Clone or download this project**:
-   ```bash
-   cd ~/Source/linux/sudo-mcp-custom
-   ```
+---
 
-2. **Install dependencies**:
-   ```bash
-   npm install
-   ```
+Approve sudo commands from AI assistants (OpenCode/Claude) through a single Chrome extension tab - even over SSH!
 
-3. **Build the project**:
-   ```bash
-   npm run build
-   ```
+## Overview
 
-4. **Add to OpenCode configuration**:
-   
-   Edit `~/.config/opencode/opencode.json`:
-   ```json
-   {
-     "mcp": {
-       "sudo-mcp-custom": {
-         "type": "local",
-         "enabled": true,
-         "command": ["node", "/home/blk/Source/linux/sudo-mcp-custom/build/index.js"]
-       }
-     }
-   }
-   ```
-
-5. **Restart OpenCode** to load the new MCP server
-
-## Usage
-
-### From OpenCode
-
-Simply ask the AI to run a command with sudo:
+When your AI assistant needs to run `sudo` commands, they appear in a Chrome extension for your approval. Works seamlessly across multiple MCP instances and remote SSH servers.
 
 ```
-User: Install htop using sudo
-AI: I'll use the sudo_exec tool to install htop...
+┌─────────────────────────────────────────────────────────────┐
+│  OpenCode (local) ──┐                                       │
+│  OpenCode (SSH)   ──┼──> Bridge ──> Chrome Extension ──> You│
+│  OpenCode (remote)──┘       ↓                               │
+│                       Password Dialog                       │
+└─────────────────────────────────────────────────────────────┘
 ```
 
-The browser will open automatically on the first command, showing the approval UI.
+## Quick Start
 
-### Browser UI
+### 1. Install & Build
 
-The browser interface shows:
+```bash
+cd ~/Source/linux/sudo-mcp-custom
+npm install
+npm run build
+```
 
-- **Pending commands**: Blue border, Execute/Decline buttons
-- **Executing commands**: Orange border with spinner
-- **Completed commands**: Green (success) or red (failed) with exit code
-- **Declined commands**: Gray with strikethrough
+### 2. Start the Bridge
 
-### Batch Operations
+```bash
+npm run bridge
+```
 
-When multiple commands are pending:
-- **Execute All**: Run all commands sequentially
-- **Decline All**: Remove all pending commands
+**Copy the token shown** (you'll need it next).
 
-### Auto-clear Behavior
+### 3. Install Chrome Extension
 
-- Completed/declined commands stay visible while queue is active
-- Once queue is empty (no pending/executing), commands auto-clear after 30 seconds
-- New commands reset the timer, preserving context
+1. Open Chrome: `chrome://extensions/`
+2. Enable **Developer mode** (top right)
+3. Click **Load unpacked**
+4. Select: `~/Source/linux/sudo-mcp-custom/extension/`
+5. **Paste your token** when prompted
 
-## Configuration
+### 4. Configure OpenCode
 
-### Blocklist
-
-Edit `config/blocklist.json` to customize blocked commands:
+Edit `~/.config/opencode/opencode.json`:
 
 ```json
 {
-  "exactMatches": ["rm -rf /"],
-  "regexPatterns": ["^mkfs\\..*\\s+/dev/[sh]d[a-z]$"],
-  "blockedBinaries": ["mkfs.ext4", "mkfs.xfs"]
+  "mcp": {
+    "sudo-mcp-custom": {
+      "type": "local",
+      "enabled": true,
+      "command": ["node", "/home/YOUR_USERNAME/Source/linux/sudo-mcp-custom/build/index.js"]
+    }
+  }
 }
 ```
 
-### Command Timeout
+Replace `YOUR_USERNAME` with your actual username.
 
-Default: 5 minutes (300 seconds)
+### 5. Restart OpenCode
 
-Modify in `src/executor/sudo-executor.ts`:
-```typescript
-export async function executeSudoCommand(
-  command: string,
-  timeout: number = 300000  // Change this value
-)
-```
+That's it! Now when the AI needs sudo, commands appear in the Chrome extension.
 
-### Auto-clear Timeout
+---
 
-Default: 30 seconds
+## SSH Setup (Remote Servers)
 
-Modify in `src/queue/command-queue.ts`:
-```typescript
-this.clearTimer = setTimeout(() => {
-  this.clearCompleted();
-}, 30000);  // Change this value (milliseconds)
-```
+Use sudo commands from OpenCode running on a remote server - approvals appear on your **local** Chrome!
 
-## Development
+### On Your Local Machine
 
-### Project Structure
+#### 1. Edit `~/.ssh/config`:
 
 ```
-sudo-mcp-custom/
-├── src/
-│   ├── index.ts              # Entry point
-│   ├── auth/
-│   │   └── session-manager.ts    # Sudo authentication
-│   ├── executor/
-│   │   └── sudo-executor.ts      # Command execution
-│   ├── queue/
-│   │   └── command-queue.ts      # Pipeline with auto-clear
-│   ├── security/
-│   │   └── blocklist.ts          # Command validation
-│   ├── server/
-│   │   ├── http-server.ts        # Express + SSE
-│   │   ├── html-renderer.ts      # UI generation
-│   │   └── mcp-server.ts         # MCP protocol
-│   ├── tools/
-│   │   └── sudo-exec.ts          # MCP tool implementation
-│   └── utils/
-│       ├── browser-opener.ts     # Lazy browser launch
-│       └── logger.ts             # stderr logging
-├── config/
-│   └── blocklist.json        # Blocked commands
-├── public/
-│   └── htmx.min.js          # HTMX library (bundled)
-└── build/                   # Compiled JavaScript
+Host myserver
+    HostName your-server-ip
+    User your-username
+    RemoteForward 9999 localhost:9999
+    ForwardX11 yes
+    ForwardX11Trusted yes
 ```
 
-### Available Scripts
+Replace `myserver`, `your-server-ip`, and `your-username` with your details.
 
-- `npm run build` - Compile TypeScript
-- `npm run dev` - Watch mode compilation
-- `npm start` - Run the server (for testing)
+#### 2. Start the bridge:
 
-### Debugging
-
-Enable debug logging:
 ```bash
-DEBUG=1 node build/index.js
+npm run bridge
 ```
 
-## Security Considerations
+Keep this running.
 
-### What's Blocked
+### On the Remote Server
 
-- Catastrophic commands only (e.g., `rm -rf /`, `mkfs` on system disks)
-- No risk analysis or warnings (by design)
-- No audit logging (by design)
+#### 1. Enable X11 Forwarding in SSH daemon:
 
-### Authentication
+```bash
+sudo nano /etc/ssh/sshd_config
+```
 
-- Password prompted via `systemd-ask-password` (native GUI dialog)
-- Sudo credentials cached for ~15 minutes (system default)
-- Re-authentication required after cache expires
+Find and change:
+```
+#X11Forwarding no
+```
 
-### Best Practices
+To:
+```
+X11Forwarding yes
+```
 
-1. **Review commands** in the browser UI before executing
-2. **Don't execute** commands you don't understand
-3. **Use carefully** in production environments
-4. **Customize blocklist** for your specific needs
+Save and restart SSH:
+```bash
+sudo systemctl restart sshd
+```
+
+#### 2. Install Password Dialog Tool:
+
+For Arch Linux:
+```bash
+sudo pacman -S zenity
+```
+
+For Ubuntu/Debian:
+```bash
+sudo apt install zenity
+```
+
+For Fedora/RHEL:
+```bash
+sudo dnf install zenity
+```
+
+#### 3. Install & Build Sudo MCP:
+
+```bash
+cd ~/Source/linux/sudo-mcp-custom
+npm install
+npm run build
+```
+
+#### 4. Configure OpenCode on Remote:
+
+Same as step 4 in Quick Start above.
+
+### Test It
+
+#### 1. SSH from local machine:
+
+```bash
+ssh myserver
+```
+
+Verify X11 is working:
+```bash
+echo $DISPLAY
+# Should show something like: localhost:10.0
+```
+
+#### 2. Start OpenCode on remote server
+
+#### 3. Request a sudo command
+
+The approval request will appear in your **local** Chrome extension!
+
+---
+
+## How It Works
+
+### Components
+
+1. **Bridge Daemon** (`npm run bridge`)
+   - Runs on your local machine
+   - Routes messages between MCP servers and Chrome extension
+   - Ports: 9999 (MCP), 9998 (Extension)
+
+2. **Chrome Extension**
+   - Single approval tab for all commands
+   - Desktop notifications with sound
+   - Flashing badge and title for attention
+   - Dark mode support
+
+3. **MCP Server** (runs with OpenCode)
+   - Detects local vs SSH sessions
+   - Auto-connects to bridge
+   - Sends commands for approval
+
+### Flow
+
+1. AI requests sudo command
+2. MCP sends to bridge (via WebSocket or SSH tunnel)
+3. Bridge forwards to Chrome extension
+4. You click **Execute** in Chrome
+5. Password dialog appears (local or via X11)
+6. Command runs, result returns to AI
+
+### SSH Tunneling
+
+```
+Remote Server                     Local Machine
+┌──────────────────┐             ┌──────────────────┐
+│ MCP Server       │             │ Bridge Daemon    │
+│   ↓              │             │   ↓              │
+│ localhost:9999 ──┼─[SSH tunnel]→ localhost:9999  │
+└──────────────────┘             │   ↓              │
+                                 │ localhost:9998   │
+                                 │   ↓              │
+                                 │ Chrome Extension │
+                                 └──────────────────┘
+```
+
+The `RemoteForward` in SSH config creates a tunnel so remote MCP can connect to your local bridge.
+
+---
+
+## Attention Features
+
+When a new command arrives, the extension:
+
+✅ **Shows desktop notification** (with sound)  
+✅ **Flashes badge** (red/orange)  
+✅ **Flashes tab title** ("🔔 NEW SUDO COMMAND!")  
+✅ **Plays beep sound**  
+✅ **Auto-focuses window/tab**  
+✅ **Animates new command card**  
+
+You won't miss a command!
+
+---
+
+## Daily Usage
+
+### Local Usage
+
+```bash
+# Start bridge (one terminal, keep running)
+npm run bridge
+
+# Start OpenCode (asks for sudo commands as needed)
+```
+
+### Remote Usage
+
+```bash
+# On local machine: Start bridge
+npm run bridge
+
+# SSH to remote
+ssh myserver
+
+# On remote: Use OpenCode as normal
+# Commands appear in your local Chrome!
+```
+
+---
 
 ## Troubleshooting
 
-### Browser doesn't open
+### Password dialog doesn't appear (SSH)
 
-**Issue**: Browser fails to launch on first command
+**Check X11 forwarding:**
+```bash
+# After SSH, run:
+echo $DISPLAY
+# Should show localhost:10.0 or similar, NOT empty
+```
 
-**Solutions**:
-- Check if `xdg-open` is installed: `which xdg-open`
-- Check DISPLAY environment: `echo $DISPLAY`
-- Manually open the URL shown in OpenCode output
+**If empty:**
+- Check remote `/etc/ssh/sshd_config` has `X11Forwarding yes`
+- Restart sshd: `sudo systemctl restart sshd`
+- Reconnect SSH
 
-### No password dialog appears
+**Workaround:**
+```bash
+# Pre-authenticate before using OpenCode:
+sudo -v
+```
 
-**Issue**: `systemd-ask-password` doesn't show GUI dialog
+This caches your password for ~15 minutes.
 
-**Solutions**:
-- Ensure polkit agent is running (for KDE/LXQt)
-- Check if running in SSH session (GUI required)
-- Try running `systemd-ask-password test` manually to verify
+### "Failed to connect to bridge"
 
-### Commands stuck in "Executing"
+**Check bridge is running:**
+```bash
+ps aux | grep 'node.*bridge'
+```
 
-**Issue**: Command appears to hang
+If not running:
+```bash
+npm run bridge
+```
 
-**Possible causes**:
-- Command requires interactive input (not supported)
-- Command timeout (default 5 minutes)
-- Sudo password expired and dialog failed
+### Extension not connecting
 
-**Solutions**:
-- Decline the command and try again
-- Check OpenCode output for error messages
-- Restart the MCP server
+1. Check token matches:
+   ```bash
+   cat ~/.config/sudo-mcp/bridge-token
+   ```
+   
+2. In Chrome extension popup, verify token
 
-### Port already in use
+3. Reload extension:
+   - `chrome://extensions/`
+   - Click reload button
 
-**Issue**: HTTP server fails to start
+### Port 9999 already in use (SSH)
 
-**Solution**: The server automatically finds an available port starting from 3000. Check OpenCode output for the actual port used.
+**Kill stale SSH tunnel:**
+```bash
+ssh myserver "pkill -f 'sshd.*notty'"
+# Reconnect
+ssh myserver
+```
 
-## Limitations
+---
 
-- **GUI required**: Cannot run headless (by design)
-- **No SSH support**: Designed for local GUI environments only
-- **Sequential execution**: Commands run one at a time (not parallel)
-- **No interactive commands**: Commands requiring stdin input will hang
+## Advanced
+
+### Multiple Remote Servers
+
+Add each server to `~/.ssh/config`:
+
+```
+Host server1
+    HostName 192.168.1.10
+    RemoteForward 9999 localhost:9999
+    ForwardX11 yes
+
+Host server2
+    HostName 192.168.1.20
+    RemoteForward 9999 localhost:9999
+    ForwardX11 yes
+```
+
+All servers connect to the same bridge. All commands appear in one Chrome tab!
+
+### Run Bridge in Background
+
+```bash
+# Start detached
+nohup npm run bridge > /tmp/sudo-mcp-bridge.log 2>&1 &
+
+# Stop it later
+pkill -f 'node.*bridge'
+```
+
+### Force HTTP Mode (No Bridge)
+
+```bash
+SUDO_MCP_USE_HTTP=true npm start
+```
+
+Each MCP instance opens its own browser window at `http://localhost:3000+`
+
+---
+
+## Security Notes
+
+- **Commands are blocked:** Only catastrophic commands (e.g., `rm -rf /`)
+- **Password required:** You must enter your sudo password each time (or every ~15 min if cached)
+- **Local bridge:** Token is stored at `~/.config/sudo-mcp/bridge-token`
+- **Review everything:** Always check commands before clicking Execute!
+
+---
+
+## Files & Directories
+
+```
+sudo-mcp-custom/
+├── src/                     # TypeScript source
+├── build/                   # Compiled JavaScript
+├── extension/               # Chrome extension
+│   ├── background/          # Service worker
+│   ├── ui/                  # Approval interface
+│   └── manifest.json
+├── config/
+│   └── blocklist.json       # Blocked commands
+└── package.json
+```
+
+**Token location:** `~/.config/sudo-mcp/bridge-token`
+
+---
+
+## Commands Reference
+
+```bash
+# Build
+npm run build
+
+# Start bridge (local machine only)
+npm run bridge
+
+# Test MCP server directly
+npm start
+
+# Development (watch mode)
+npm run dev
+```
+
+---
+
+## Credits
+
+Built for OpenCode using the Model Context Protocol (MCP).
+
+**Requirements:**
+- Node.js 18+
+- Linux with X11
+- Chrome/Chromium browser
+- `zenity` or `kdialog` (for password dialogs over SSH)
+
+---
 
 ## License
 
 ISC
-
-## Credits
-
-Built for OpenCode using:
-- [Model Context Protocol SDK](https://github.com/modelcontextprotocol/sdk)
-- [HTMX](https://htmx.org)
-- [Express](https://expressjs.com)

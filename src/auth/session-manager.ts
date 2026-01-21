@@ -32,10 +32,50 @@ export class SessionManager {
 
     // Detect which password dialog tool to use
     const desktop = process.env.XDG_CURRENT_DESKTOP || '';
+    const isSSH = !!process.env.SSH_CONNECTION;
+    
     let dialogTool: string;
     let dialogArgs: string[];
 
-    if (desktop.includes('KDE')) {
+    // For SSH sessions, try to use X11-compatible tools
+    if (isSSH) {
+      // Check what's available - prefer zenity/kdialog for X11
+      const hasZenity = await this.commandExists('zenity');
+      const hasKdialog = await this.commandExists('kdialog');
+      
+      if (hasZenity) {
+        dialogTool = 'zenity';
+        dialogArgs = [
+          '--password',
+          '--title=Sudo Authentication',
+          '--text=Sudo password required for MCP server'
+        ];
+        log('Using zenity for SSH X11 forwarding');
+      } else if (hasKdialog) {
+        dialogTool = 'kdialog';
+        dialogArgs = [
+          '--password',
+          'Sudo password required for MCP server'
+        ];
+        log('Using kdialog for SSH X11 forwarding');
+      } else {
+        // Fallback: use SSH_ASKPASS if available
+        const hasSshAskpass = await this.commandExists('ssh-askpass') || 
+                             await this.commandExists('ksshaskpass') ||
+                             await this.commandExists('gnome-ssh-askpass');
+        
+        if (hasSshAskpass) {
+          dialogTool = process.env.SSH_ASKPASS || 'ssh-askpass';
+          dialogArgs = ['Sudo password required for MCP server'];
+          log(`Using ${dialogTool} for SSH session`);
+        } else {
+          throw new Error(
+            'No X11-compatible password dialog found. Please install zenity, kdialog, or ssh-askpass on the remote server.\n' +
+            'Alternatively, use passwordless sudo or pre-authenticate with: sudo -v'
+          );
+        }
+      }
+    } else if (desktop.includes('KDE')) {
       // KDE - use kdialog
       dialogTool = 'kdialog';
       dialogArgs = [
@@ -113,6 +153,17 @@ export class SessionManager {
   }
 
   /**
+   * Check if a command exists in PATH
+   */
+  private async commandExists(command: string): Promise<boolean> {
+    return new Promise((resolve) => {
+      spawn('which', [command], { stdio: 'ignore' })
+        .on('close', (code) => resolve(code === 0))
+        .on('error', () => resolve(false));
+    });
+  }
+
+  /**
    * Validate password by running sudo -S -v
    */
   private async validatePassword(password: string): Promise<void> {
@@ -143,9 +194,13 @@ export class SessionManager {
    * Ensure sudo credentials are valid, authenticate if needed
    */
   async ensureAuthenticated(): Promise<void> {
+    log('Checking sudo credentials...');
     const valid = await this.checkSudoValid();
     if (!valid) {
+      log('Sudo credentials expired, requesting authentication...');
       await this.authenticate();
+    } else {
+      log('Sudo credentials are valid');
     }
   }
 }
