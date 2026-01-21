@@ -20,7 +20,7 @@ Just close the tab - you were warned. Good luck!
 
 Approve sudo commands from AI assistants (OpenCode/Claude) through a single Chrome extension tab - even over SSH!
 
-> **Platform:** Requires X11 and GUI password dialogs (zenity or kdialog). May work on macOS or WSL2 with proper X server setup, but untested. Windows support unknown.
+> **Platform:** Requires X11, Chrome/Chromium browser, and GUI password dialogs (zenity or kdialog). May work on macOS or WSL2 with proper X server setup, but untested. Windows support unknown.
 
 ## Overview
 
