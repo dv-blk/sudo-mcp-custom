@@ -4,7 +4,7 @@
 ⚠️  WARNING: AI-GENERATED CODE AHEAD ⚠️
 ```
 
-**This entire library was conjured by AI.** Every line: TypeScript, bridge daemon, Chrome extension, SSH tunneling, even this README. I just sat there muttering "sure" and "pls no more enter password."
+**This entire library was conjured by AI.** Every line: TypeScript, bridge daemon, Chrome extension, SSH tunneling, even this README. I just sat there muttering "sure" and "pls no more sudo copy paste"
 
 **Safe?** I don't know.
 
