@@ -14,6 +14,8 @@ export class CustomWebSocketServer {
   private clients = new Map<string, WebSocket>();
   private config: WebSocketServerConfig;
   private nextClientId = 1;
+  private pingIntervals = new Map<string, NodeJS.Timeout>();
+  private readonly PING_INTERVAL = 20000; // 20 seconds
 
   constructor(config: WebSocketServerConfig) {
     this.config = config;
@@ -32,9 +34,19 @@ export class CustomWebSocketServer {
 
       log(`${this.config.name}: Client connected (${clientId})`);
 
+      // Start ping interval for this client
+      this.startPingInterval(clientId, ws);
+
       ws.on('message', (data: Buffer) => {
         try {
           const message = JSON.parse(data.toString());
+          
+          // Handle pong response
+          if (message.type === 'pong') {
+            // Client is alive, no action needed
+            return;
+          }
+          
           this.config.onMessage(ws, clientId, message);
         } catch (error) {
           logError(`${this.config.name}: Failed to parse message from ${clientId}`, error as Error);
@@ -43,12 +55,18 @@ export class CustomWebSocketServer {
 
       ws.on('close', () => {
         log(`${this.config.name}: Client disconnected (${clientId})`);
+        this.stopPingInterval(clientId);
         this.clients.delete(clientId);
         this.config.onClose(clientId);
       });
 
       ws.on('error', (error) => {
         logError(`${this.config.name}: WebSocket error for ${clientId}`, error);
+      });
+
+      // Handle pong frames (native WebSocket ping/pong)
+      ws.on('pong', () => {
+        // Client responded to native ping, connection is alive
       });
 
       this.config.onConnection(ws, clientId);
@@ -98,9 +116,41 @@ export class CustomWebSocketServer {
   }
 
   /**
+   * Start ping interval for a client
+   */
+  private startPingInterval(clientId: string, ws: WebSocket): void {
+    const interval = setInterval(() => {
+      if (ws.readyState === WebSocket.OPEN) {
+        // Send both native ping and JSON ping for compatibility
+        ws.ping(); // Native WebSocket ping
+        ws.send(JSON.stringify({ type: 'ping' })); // Application-level ping
+      } else {
+        this.stopPingInterval(clientId);
+      }
+    }, this.PING_INTERVAL);
+    
+    this.pingIntervals.set(clientId, interval);
+  }
+
+  /**
+   * Stop ping interval for a client
+   */
+  private stopPingInterval(clientId: string): void {
+    const interval = this.pingIntervals.get(clientId);
+    if (interval) {
+      clearInterval(interval);
+      this.pingIntervals.delete(clientId);
+    }
+  }
+
+  /**
    * Close the server
    */
   async close(): Promise<void> {
+    // Stop all ping intervals
+    this.pingIntervals.forEach((interval) => clearInterval(interval));
+    this.pingIntervals.clear();
+
     // First, close all active client connections
     this.clients.forEach((ws, clientId) => {
       if (ws.readyState === WebSocket.OPEN || ws.readyState === WebSocket.CONNECTING) {

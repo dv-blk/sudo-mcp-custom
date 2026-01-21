@@ -2,12 +2,15 @@
 
 const BRIDGE_URL = 'ws://localhost:9998';
 const RECONNECT_INTERVAL = 5000; // 5 seconds
+const PING_TIMEOUT = 35000; // 35 seconds - if no ping received, assume disconnected
 
 let ws = null;
 let reconnectTimer = null;
+let pingTimeoutTimer = null;
 let isAuthenticated = false;
 let commandQueue = [];
 let approvalTabId = null;
+let savedToken = null; // Cache token to avoid repeated storage reads
 
 // Initialize on install
 chrome.runtime.onInstalled.addListener(() => {
@@ -38,6 +41,7 @@ async function checkTokenAndConnect() {
     return;
   }
   
+  savedToken = token; // Cache the token
   connectToBridge(token);
 }
 
@@ -61,6 +65,9 @@ function connectToBridge(token) {
         type: 'auth',
         token: token
       }));
+      
+      // Start ping timeout monitoring
+      resetPingTimeout();
     };
     
     ws.onmessage = (event) => {
@@ -79,6 +86,7 @@ function connectToBridge(token) {
     ws.onclose = () => {
       console.log('Disconnected from bridge');
       isAuthenticated = false;
+      clearPingTimeout();
       scheduleReconnect(token);
     };
   } catch (error) {
@@ -102,12 +110,47 @@ function scheduleReconnect(token) {
 }
 
 /**
+ * Reset ping timeout timer
+ */
+function resetPingTimeout() {
+  if (pingTimeoutTimer) {
+    clearTimeout(pingTimeoutTimer);
+  }
+  
+  pingTimeoutTimer = setTimeout(() => {
+    console.warn('No ping received from bridge for 35s, assuming disconnected');
+    if (ws) {
+      ws.close();
+    }
+  }, PING_TIMEOUT);
+}
+
+/**
+ * Clear ping timeout timer
+ */
+function clearPingTimeout() {
+  if (pingTimeoutTimer) {
+    clearTimeout(pingTimeoutTimer);
+    pingTimeoutTimer = null;
+  }
+}
+
+/**
  * Handle messages from bridge
  */
 function handleBridgeMessage(message) {
   console.log('Received message:', message.type);
   
   switch (message.type) {
+    case 'ping':
+      // Respond to ping to keep connection alive
+      if (ws && ws.readyState === WebSocket.OPEN) {
+        ws.send(JSON.stringify({ type: 'pong' }));
+      }
+      // Reset ping timeout since we received a ping
+      resetPingTimeout();
+      break;
+      
     case 'authenticated':
       isAuthenticated = true;
       console.log('Authenticated with bridge');
@@ -294,6 +337,16 @@ async function openOrFocusApprovalTab() {
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   if (message.type === 'get_queue') {
     sendResponse({ commands: commandQueue });
+    return true;
+  }
+  
+  if (message.type === 'get_connection_status') {
+    const connected = ws && ws.readyState === WebSocket.OPEN && isAuthenticated;
+    sendResponse({ 
+      connected: connected,
+      readyState: ws ? ws.readyState : null,
+      isAuthenticated: isAuthenticated
+    });
     return true;
   }
   

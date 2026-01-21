@@ -6,17 +6,27 @@ document.addEventListener('DOMContentLoaded', async () => {
   const openApprovalBtn = document.getElementById('openApproval');
   const resetTokenLink = document.getElementById('resetToken');
   
-  // Get queue from background
+  // Get connection status and queue from background
   try {
-    const response = await chrome.runtime.sendMessage({ type: 'get_queue' });
-    const pendingCount = response.commands.filter(c => c.status === 'pending').length;
+    const statusResponse = await chrome.runtime.sendMessage({ type: 'get_connection_status' });
+    const queueResponse = await chrome.runtime.sendMessage({ type: 'get_queue' });
+    
+    const pendingCount = queueResponse.commands.filter(c => c.status === 'pending').length;
     pendingCountEl.textContent = pendingCount;
     
-    // Assume connected if we have commands or badge set
-    bridgeStatusEl.textContent = 'Connected';
-    bridgeStatusEl.classList.add('connected');
+    // Update connection status
+    if (statusResponse.connected) {
+      bridgeStatusEl.textContent = 'Connected';
+      bridgeStatusEl.classList.add('connected');
+      bridgeStatusEl.classList.remove('disconnected');
+    } else {
+      bridgeStatusEl.textContent = 'Disconnected';
+      bridgeStatusEl.classList.add('disconnected');
+      bridgeStatusEl.classList.remove('connected');
+    }
   } catch (error) {
-    bridgeStatusEl.textContent = 'Disconnected';
+    console.error('Failed to get status:', error);
+    bridgeStatusEl.textContent = 'Error';
     bridgeStatusEl.classList.add('disconnected');
   }
   
