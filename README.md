@@ -27,12 +27,13 @@ Approve sudo commands from AI assistants (OpenCode/Claude) through a single Chro
 When your AI assistant needs to run `sudo` commands, they appear in a Chrome extension for your approval. Works seamlessly across multiple MCP instances and remote SSH servers.
 
 ```
-┌─────────────────────────────────────────────────────────────┐
-│  OpenCode (local) ──┐                                       │
-│  OpenCode (SSH)   ──┼──> Bridge ──> Chrome Extension ──> You│
-│  OpenCode (remote)──┘       ↓                               │
-│                       Password Dialog                       │
-└─────────────────────────────────────────────────────────────┘
+┌──────────────────────────────────────────────────────────────┐
+│  OpenCode (local) ──┐                                        │
+│  OpenCode (SSH)   ──┼──> Bridge ──> Chrome Extension ──> You │
+│  OpenCode (remote)──┘                                        │
+│                                                              │
+│  Password Dialog (via X11) appears on your local screen     │
+└──────────────────────────────────────────────────────────────┘
 ```
 
 ## Quick Start
