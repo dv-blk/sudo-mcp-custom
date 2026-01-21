@@ -291,14 +291,6 @@ echo $DISPLAY
 - Restart sshd: `sudo systemctl restart sshd`
 - Reconnect SSH
 
-**Workaround:**
-```bash
-# Pre-authenticate before using OpenCode:
-sudo -v
-```
-
-This caches your password for ~15 minutes.
-
 ### "Failed to connect to bridge"
 
 **Check bridge is running:**

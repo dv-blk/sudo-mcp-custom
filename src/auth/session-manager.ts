@@ -60,8 +60,7 @@ export class SessionManager {
         log('Using kdialog for SSH X11 forwarding');
       } else {
         throw new Error(
-          'No X11-compatible password dialog found. Please install zenity or kdialog on the remote server.\n' +
-          'Alternatively, use passwordless sudo or pre-authenticate with: sudo -v'
+          'No X11-compatible password dialog found. Please install zenity or kdialog on the remote server.'
         );
       }
     } else if (desktop.includes('KDE')) {
